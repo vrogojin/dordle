@@ -85,15 +85,81 @@ async function listGames(caller_addr){
     let participate_before = [];
     let participate_active = [];
     let participate_completed = [];
+    let participate_halted = [];
     let owned_before = [];
     let owned_active = [];
     let owned_completed = [];
+    let owned_halted = [];
 
     const participating = await listParticipatedGames(caller_addr);
     const owned = await listOwnedGames(caller_addr);
 
     for(game_uuid in participating){
-	
+	switch(await getGameStatus(game_uuid)){
+	    case GAME_CREATED:
+		participate_before.push(game_uuid);
+		break;
+	    case GAME_STARTED:
+		participate_active.push(game_uuid);
+		break;
+	    case GAME_OVER:
+		participate_completed.push(game_uuid);
+		break;
+	    case GAME_HALTED:
+		participate_halted.push(game_uuid);
+		break;
+	    default:
+		throw ApiError.internal("Server internal data structure error: game "+
+		    game_uuid+" has no status");
+	}
+    }
+
+    for(game_uuid in owned){
+	switch(await getGameStatus(game_uuid)){
+	    case GAME_CREATED:
+		owned_before.push(game_uuid);
+		break;
+	    case GAME_STARTED:
+		owned_active.push(game_uuid);
+		break;
+	    case GAME_OVER:
+		owned_completed.push(game_uuid);
+		break;
+	    case GAME_HALTED:
+		owned_halted.push(game_uuid);
+		break;
+	    default:
+		throw ApiError.internal("Server internal data structure error: game "+
+		    game_uuid+" has no status");
+	}
+    }
+
+    return {
+	participating: {
+	    created: participate_before,
+	    active: participate_active,
+	    completed: participate_completed,
+	    halted: participate_halted
+	},
+	owned: {
+	    created: owned_before,
+	    active: owned_active,
+	    completed: owned_completed,
+	    halted: owned_halted
+	}
+    }
+}
+
+async function infoGame(game_uuid){
+    return {
+	name: await storage.getItem(game_name_key(game_uuid)),
+	start: await storage.getItem(game_start_time_key(game_uuid)),
+	end: await storage.getItem(game_end_time_key(game_uuid)),
+	length: await storage.getItem(game_length_key(game_uuid)),
+	status: await getGameStatus(game_uuid),
+	stats: await getGameStats(game_uuid),
+	winner: await storage.getItem(game_winner_key(game_uuid)),
+	opts: await storage.getItem(game_opts_key(game_uuid))
     }
 }
 
@@ -163,6 +229,13 @@ async function getGameStatus(game_uuid){
     return await storage.getItem(game_status_key(game_uuid));
 }
 
+async function setGameStats(game_uuid, game_stats){
+    return await storage.setItem(game_stats_key(game_uuid), game_stats);
+}
+
+async function getGameStats(game_uuid){
+    return await storage.getItem(game_stats_key(game_uuid));
+}
 
 
 async function find_in(array_item_key, array_length_key, verify, id, value){
@@ -196,6 +269,22 @@ function game_owner_key(uuid){
     return sha256(uuid+'_game_owner');
 }
 
+function game_winner_key(uuid){
+    return sha256(uuid+'_game_winner');
+}
+
+function game_length_key(uuid){
+    return sha256(uuid+'_game_length');
+}
+
+function game_start_time_key(uuid){
+    return sha256(uuid+'_game_starttime');
+}
+
+function game_end_time_key(uuid){
+    return sha256(uuid+'_game_endtime');
+}
+
 function game_participant_key(uuid, index){
     return sha256(uuid+'_game_participant_'+index);
 }
@@ -226,4 +315,8 @@ function link_game_key(link_uuid){
 
 function game_status_key(uuid){
     return sha256(uuid+'_game_status');
+}
+
+function game_stats_key(uuid){
+    return sha256(uuid+'_game_stats');
 }

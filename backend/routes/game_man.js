@@ -47,14 +47,17 @@ async function joinGameHanlder(req, res){
 }
 
 async function listGamesHanlder(req, res){
-    const { address } = req.body.data;
+    const { address } = req.query.data;
 
-    const games = {
-	participating: await listGames()
-    }
-
-    return respondOk(req, res, await joinGame(games[game_type], invite_uuid, address));
+    return respondOk(req, res, await listGames(address));
 }
+
+async function infoGameHanlder(req, res){
+    const { game_uuid } = req.query.data;
+
+    return respondOk(req, res, await infoGame(game_uuid));
+}
+
 
 function registerGameLogic(game_type, game_logic){
     games[game_type] = game_logic;
